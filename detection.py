@@ -5,7 +5,7 @@ import numpy as np
 from keras.models import Model
 from keras.models import load_model
 from keras.layers import Input
-from yolov3.model import make_decoder_layer
+from yolov3.decoder_layer import make_decoder_layer
 import time
 import argparse
 
