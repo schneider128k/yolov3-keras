@@ -103,7 +103,7 @@ def convert_box_params(b_xy, b_wh):
 
 def make_decoder_layer(all_anchors, num_classes, input_shape):
 
-    def postprocess(yolo_outputs):
+    def decode(yolo_outputs):
         num_scales = len(yolo_outputs)
         anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_scales == 3 else [[3, 4, 5], [1, 2, 3]]
 
@@ -157,7 +157,7 @@ def make_decoder_layer(all_anchors, num_classes, input_shape):
             K.concatenate(class_probs_list, axis=1)
         ]
 
-    return Lambda(postprocess)
+    return Lambda(decode)
 
 
 def tiny_yolo_body(input, num_anchors, num_classes):

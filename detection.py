@@ -6,7 +6,6 @@ from keras.models import Model
 from keras.models import load_model
 from keras.layers import Input
 from yolov3.model import make_decoder_layer
-from yolov3.utils import make_boxed_image
 
 
 class ObjectDetector(object):
@@ -14,9 +13,10 @@ class ObjectDetector(object):
         'model_path': 'model_data/yolov3.h5',
         'anchors_path': 'model_data/coco_anchors.txt',
         'classes_path': 'model_data/coco_classes.txt',
-        'input_size': (416, 416),  # height, width
-        'score': 0.7,  # a box is considered for class c iff confidence times class_prob for c is >= 0.7
-        'iou': 0.4,  # boxes with iou 0.4 or greater are suppressed in nms
+        'height': 416,  # height
+        'width' : 416,
+        'score_threshold': 0.7,  # a box is considered for class c iff confidence times class_prob for c is >= 0.7
+        'iou_threshold': 0.4,  # boxes with iou 0.4 or greater are suppressed in nms
         'max_num_boxes' : 10  # max number of boxes for a class
     }
 
@@ -69,114 +69,129 @@ class ObjectDetector(object):
             assert yolo_model.output[idx].shape[-1] == self.num_anchors_per_scale * (self.num_classes + 5), \
                 'Mismatch between model output length and number of anchors and and number of classes'
 
-        input = Input(shape=(self.input_size[0], self.input_size[1], 3))
+        input = Input(shape=(self.height, self.width, 3))
         x1 = yolo_model(input)
-        decoder_layer = make_decoder_layer(self.anchors, self.num_classes, self.input_size)
+        decoder_layer = make_decoder_layer(self.anchors, self.num_classes, (self.height, self.width))
         x2 = decoder_layer(x1)
 
         return Model(input, x2)
 
-    def detect_image(self, image):
+    def detect_image(self, image, nms=True):
+        self.make_model_input(image)
+        self.run_yolov3()
+        if nms:
+            self.show_nms_bounding_boxes()
+        else:
+            self.show_all_bounding_boxes()
 
-        input_image, scale, offset_height, offset_width = make_boxed_image(image, self.input_size)
+    def make_model_input(self, image):
+        self.image = image
+        self.image_height = image.shape[0]
+        self.image_width = image.shape[1]
+        self.scale = min(self.height / self.image_height, self.width / self.image_width)
+        tmp_height = int(self.scale * self.image_height)
+        tmp_width = int(self.scale * self.image_width)
+        self.offset_height = (self.height - tmp_height) // 2
+        self.offset_width = (self.width - tmp_width) // 2
+        input = np.zeros((self.height, self.width, 3), np.uint8)
+        input[:, :] = (128, 128, 128)
+        input[self.offset_height:self.offset_height + tmp_height, self.offset_width:self.offset_width + tmp_width] = \
+            cv2.resize(image, (tmp_width, tmp_height))
 
-        input = np.array(input_image, dtype='float32')
+        input = np.array(input, dtype='float32')
         input /= 255.
-        input = np.expand_dims(input, 0)  # add batch dimension.
+        self.input = np.expand_dims(input, 0)  # add batch dimension.
 
-        outputs = self.model.predict(input)
-
-        # self.show_all_bounding_boxes(input_image, outputs)
-        self.show_non_suppressed_bounding_boxes(input_image, outputs)
-
-    def show_all_bounding_boxes(self, image, outputs, score_threshold=0.7):
-        print('all bounding boxes')
+    def run_yolov3(self):
+        outputs = self.model.predict(self.input)
         # the second value is 0 because batch size = 1 here for prediction
-        boxes = outputs[0][0]
-        confidence = np.reshape(outputs[1][0], [-1, 1])
-        class_probs = outputs[2][0]
-        scores = confidence * class_probs
-        num_boxes = boxes.shape[0]
+        self.boxes = outputs[0][0]
+        self.confidence = np.reshape(outputs[1][0], [-1, 1])
+        self.class_probs = outputs[2][0]
+        self.scores = self.confidence * self.class_probs
 
-        annotated_image = image[...]
+    def translate_coord(self, box):
+        # the YOLOv3 model returns y and x coords in the range [0, 1] with respect to the the model height and width
+        # they need to be translated to the coords of the original image
+        y_min = int((box[0] * self.height - self.offset_height) / self.scale)
+        x_min = int((box[1] * self.width - self.offset_width) / self.scale)
+        y_max = int((box[2] * self.height- self.offset_height) / self.scale)
+        x_max = int((box[3] * self.width - self.offset_width) / self.scale)
+        return y_min, x_min, y_max, x_max
+
+    def show_all_bounding_boxes(self):
+        print('all bounding boxes')
+
+        num_boxes = self.boxes.shape[0]
+        print('num_boxes:', num_boxes)
 
         font = cv2.FONT_HERSHEY_PLAIN
 
         for box_idx in np.arange(num_boxes):
-            y_min = int(self.input_size[0] * boxes[box_idx, 0])
-            x_min = int(self.input_size[1] * boxes[box_idx, 1])
-            y_max = int(self.input_size[0] * boxes[box_idx, 2])
-            x_max = int(self.input_size[1] * boxes[box_idx, 3])
 
-            for class_index in np.arange(self.num_classes):  # self.num_classes):
-                if scores[box_idx, class_index] >= score_threshold:
-                    label = '{} {:.2f}'.format(self.class_names[class_index], class_probs[box_idx, class_index])
+            y_min, x_min, y_max, x_max = self.translate_coord(self.boxes[box_idx])
+
+            for class_index in np.arange(self.num_classes):
+
+                if self.scores[box_idx, class_index] >= self.score_threshold:
+                    label = '{} {:.2f}'.format(self.class_names[class_index], self.class_probs[box_idx, class_index])
                     label_size = cv2.getTextSize(label, font, 1, 1)
 
                     label_width = label_size[0][0]
                     label_height = label_size[0][1]
 
-                    cv2.rectangle(annotated_image,
+                    cv2.rectangle(self.image,
                                   (x_min, y_min), (x_max, y_max),
                                   self.colors[class_index],
                                   2)
-                    cv2.rectangle(annotated_image,
+                    cv2.rectangle(self.image,
                                   (x_min, y_min - label_height),
                                   (x_min + label_width, y_min),
                                   self.colors[class_index],
                                   -1)
-                    cv2.putText(annotated_image,
+                    cv2.putText(self.image,
                                 label,
                                 (x_min, y_min),
                                 font, 1, (0, 0, 0), 1, cv2.LINE_AA)
 
-        cv2.imshow('all bounding boxes', annotated_image)
+        cv2.imshow('all bounding boxes', self.image)
 
-    def show_non_suppressed_bounding_boxes(self, image, outputs, max_num_boxes=10, score_threshold=0.7, iou_threshold=0.4):
-        # the second value is 0 because batch size = 1 here for prediction
-        boxes = outputs[0][0]
-        confidence = outputs[1][0]
-        class_probs = outputs[2][0]
-        scores = np.reshape(confidence, [-1, 1]) * class_probs
+    def show_nms_bounding_boxes(self):
 
-        annotated_image = image[...]
         font = cv2.FONT_HERSHEY_PLAIN
 
         for class_index in np.arange(self.num_classes):
 
             pick_for_class = \
-                non_max_suppression(boxes, scores[:, class_index], max_num_boxes, score_threshold, iou_threshold)
+                non_max_suppression(self.boxes, self.scores[:, class_index], self.max_num_boxes, self.score_threshold, self.iou_threshold)
 
             for box_idx in pick_for_class:
+                y_min, x_min, y_max, x_max = self.translate_coord(self.boxes[box_idx])
 
-                y_min = int(self.input_size[0] * boxes[box_idx, 0])
-                x_min = int(self.input_size[1] * boxes[box_idx, 1])
-                y_max = int(self.input_size[0] * boxes[box_idx, 2])
-                x_max = int(self.input_size[1] * boxes[box_idx, 3])
-
-                label = '{} {:.2f}'.format(self.class_names[class_index], class_probs[box_idx, class_index])
+                label = '{} {:.2f}'.format(self.class_names[class_index], self.class_probs[box_idx, class_index])
                 label_size = cv2.getTextSize(label, font, 1, 1)
 
                 label_width = label_size[0][0]
                 label_height = label_size[0][1]
 
-                cv2.rectangle(annotated_image,
+                cv2.rectangle(self.image,
                               (x_min, y_min), (x_max, y_max),
                               self.colors[class_index],
                               2)
-                cv2.rectangle(annotated_image,
+                cv2.rectangle(self.image,
                               (x_min, y_min - label_height),
                               (x_min + label_width, y_min),
                               self.colors[class_index],
                               -1)
-                cv2.putText(annotated_image,
+                cv2.putText(self.image,
                             label,
                             (x_min, y_min),
                             font, 1, (0, 0, 0), 1, cv2.LINE_AA)
 
-        cv2.imshow('non suppressed bounding boxes', annotated_image)
+        cv2.imshow('non suppressed bounding boxes', self.image)
 
 
+# turn this into a class function ???
 def non_max_suppression(boxes, scores, max_num_boxes, score_threshold, iou_threshold):
 
     # initialize the list of picked indexes
@@ -230,11 +245,11 @@ def non_max_suppression(boxes, scores, max_num_boxes, score_threshold, iou_thres
 
 
 def main():
-    filename = 'test_images/military_trucks.jpg'
-    image = cv2.imread(filename, cv2.COLOR_BGR2RGB)
-    # cv2.imshow('original image', image)
+    filename = 'test_images/military_trucks'
+    image = cv2.imread(filename + '.jpg', cv2.COLOR_BGR2RGB)
     detector = ObjectDetector()
     detector.detect_image(image)
+    cv2.imwrite(filename + '_detected.jpg', image)
     cv2.waitKey()
 
 
