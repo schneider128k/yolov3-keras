@@ -6,6 +6,8 @@ from keras.models import Model
 from keras.models import load_model
 from keras.layers import Input
 from yolov3.model import make_decoder_layer
+import time
+import argparse
 
 
 class ObjectDetector(object):
@@ -155,12 +157,13 @@ class ObjectDetector(object):
                                 font, 1, (0, 0, 0), 1, cv2.LINE_AA)
 
         cv2.imshow('all bounding boxes', self.image)
+        cv2.waitKey(1)
 
     def show_nms_bounding_boxes(self):
 
         font = cv2.FONT_HERSHEY_PLAIN
 
-        for class_index in np.arange(self.num_classes):
+        for class_index in [0, 2, 3, 4, 7, 24]:  # np.arange(self.num_classes):
 
             pick_for_class = \
                 non_max_suppression(self.boxes, self.scores[:, class_index], self.max_num_boxes, self.score_threshold, self.iou_threshold)
@@ -188,7 +191,8 @@ class ObjectDetector(object):
                             (x_min, y_min),
                             font, 1, (0, 0, 0), 1, cv2.LINE_AA)
 
-        cv2.imshow('non suppressed bounding boxes', self.image)
+        cv2.imshow('nms bounding boxes', self.image)
+        cv2.waitKey(1)
 
 
 # turn this into a class function ???
@@ -244,14 +248,57 @@ def non_max_suppression(boxes, scores, max_num_boxes, score_threshold, iou_thres
     return pick
 
 
-def main():
-    filename = 'test_images/military_trucks'
-    image = cv2.imread(filename + '.jpg', cv2.COLOR_BGR2RGB)
+def main(path, video=False):
+
     detector = ObjectDetector()
-    detector.detect_image(image)
-    cv2.imwrite(filename + '_detected.jpg', image)
-    cv2.waitKey()
+
+    if video:
+        video_file_path = path
+
+        video_object = cv2.VideoCapture(video_file_path)
+        frame_rate = video_object.get(5)  # frame rate
+        print ("\nPlaying Video from", video_file_path, "with framerate", frame_rate)
+
+        start = time.time()
+
+        while True:
+            frame_id = video_object.get(1)  # current frame number
+            ret, frame = video_object.read()
+            if ret is False or frame is None:
+                break
+
+            if frame_rate <= 31:
+                if frame_id % 2 == 0:
+                    detector.detect_image(frame)   # every second frame if frame rate low
+            else:
+                if frame_id % 4 == 0:
+                    detector.detect_image(frame)   # every second frame if frame rate high
+
+        video_object.release()
+        end = time.time()
+        print("Time elapsed in minutes: ", ((end - start) / 60))
+    else:
+        image = cv2.imread(path, cv2.COLOR_BGR2RGB)
+        detector.detect_image(image)
+        cv2.waitKey()
+
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        '--video', default=None, help="video path"
+    )
+
+    parser.add_argument(
+        '--image', default=None, help="image path"
+    )
+
+    args = parser.parse_args()
+
+    if args.video:
+        main(args.video, video=True)
+    else:
+        main(args.image)
