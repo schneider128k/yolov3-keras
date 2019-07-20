@@ -25,7 +25,8 @@ Bounding Box Prediction/Figure 2 and the implementation of the function ```make_
 * Download YOLOv3 weights ```yolov3.weights``` from [YOLO website](https://pjreddie.com/media/files/yolov3.weights).
 * Convert the Darknet YOLOv3 model to a Keras model:
 ```python convert.py yolov3.cfg yolov3.weights model_data/yolov3.h5```
-* Run YOLOv3 detection: ```python detection.py``` 
+* Run YOLOv3 detection: ```python detection.py --image <path to image>``` or 
+```python detection.py --video <path to video>``` 
 
-The file ```detection.py``` loads the image ```test_images\military_trucks.jpg``` and displays 
-the detected objects in it. Note that it takes a while to load the Keras model ```model_data\yolov3.h5```.  
+Note that it takes a while to load the Keras model ```model_data\yolov3.h5``` before the detection 
+starts.  
