@@ -28,5 +28,7 @@ Bounding Box Prediction/Figure 2 and the implementation of the function ```make_
 * Run YOLOv3 detection: ```python detection.py --image <path to image>``` or 
 ```python detection.py --video <path to video>``` 
 
+The video [YOLOv3 object detection applied to ArmA3](https://www.youtube.com/watch?v=Nrg5WcMN9lU) shows this implementation in action.
+
 Note that it takes a while to load the Keras model ```model_data\yolov3.h5``` before the detection 
 starts.  
