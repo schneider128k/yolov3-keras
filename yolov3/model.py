@@ -1,14 +1,11 @@
 """YOLO_v3 Model Defined in Keras."""
 
-from keras import backend as K
 from keras.layers import Conv2D, Add, ZeroPadding2D, UpSampling2D, Concatenate, MaxPooling2D
-from keras.layers import Lambda
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.regularizers import l2
-from yolov3.utils import compose
-import numpy as np
+from utils import compose
 
 
 def DarknetConv2D(*args, **kwargs):
@@ -67,29 +64,29 @@ def make_last_layers(x, num_filters, out_filters):
     return x, y
 
 
-def make_yolo_model(input, num_anchors, num_classes):
+def make_yolo_model(input, num_anchors_per_scale, num_classes):
     """Create YOLO_V3 model CNN body in Keras."""
     b1, b2, b3 = darknet_body(input)
 
-    x, y1 = make_last_layers(b1, 512, num_anchors * (5 + num_classes))
+    x, y1 = make_last_layers(b1, 512, num_anchors_per_scale * (5 + num_classes))
     x = compose(
             DarknetConv2D_BN_Leaky(256, (1, 1)),
             UpSampling2D(2))(x)
     x = Concatenate()([x, b2.output])
 
-    x, y2 = make_last_layers(x, 256, num_anchors * (5 + num_classes))
+    x, y2 = make_last_layers(x, 256, num_anchors_per_scale * (5 + num_classes))
 
     x = compose(
             DarknetConv2D_BN_Leaky(128, (1, 1)),
             UpSampling2D(2))(x)
     x = Concatenate()([x, b3])
 
-    _, y3 = make_last_layers(x, 128, num_anchors * (5 + num_classes))
+    _, y3 = make_last_layers(x, 128, num_anchors_per_scale * (5 + num_classes))
 
     return Model(input, [y1, y2, y3])
 
 
-def make_tiny_yolo_model(input, num_anchors, num_classes):
+def make_tiny_yolo_model(input, num_anchors_per_scale, num_classes):
     """Create Tiny YOLO_v3 model CNN body in keras."""
     x1 = compose(
             DarknetConv2D_BN_Leaky(16, (3, 3)),
@@ -109,7 +106,7 @@ def make_tiny_yolo_model(input, num_anchors, num_classes):
             DarknetConv2D_BN_Leaky(256, (1, 1)))(x1)
     y1 = compose(
             DarknetConv2D_BN_Leaky(512, (3, 3)),
-            DarknetConv2D(num_anchors * (5 + num_classes), (1, 1)))(x2)
+            DarknetConv2D(num_anchors_per_scale * (5 + num_classes), (1, 1)))(x2)
 
     x2 = compose(
             DarknetConv2D_BN_Leaky(128, (1, 1)),
@@ -117,6 +114,6 @@ def make_tiny_yolo_model(input, num_anchors, num_classes):
     y2 = compose(
             Concatenate(),
             DarknetConv2D_BN_Leaky(256, (3, 3)),
-            DarknetConv2D(num_anchors * (5 + num_classes), (1, 1)))([x2, x1])
+            DarknetConv2D(num_anchors_per_scale * (5 + num_classes), (1, 1)))([x2, x1])
 
     return Model(input, [y1, y2])
