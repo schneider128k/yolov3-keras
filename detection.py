@@ -93,7 +93,9 @@ class ObjectDetector(object):
 
         input = Input(shape=(self.height, self.width, 3))
         x1 = yolo_model(input)
-        decoder_layer = make_decoder_layer(self.anchors, self.num_classes, (self.height, self.width))
+        decoder_layer = make_decoder_layer(self.anchors,
+                                           self.num_classes,
+                                           (self.height, self.width))
         x2 = decoder_layer(x1)
 
         return Model(input, x2)
@@ -127,31 +129,33 @@ class ObjectDetector(object):
     def run_yolov3(self):
         outputs = self.model.predict(self.input)
         # the second value is 0 because batch size = 1 here for prediction
-        self.boxes = outputs[0][0]
-        self.confidence = np.reshape(outputs[1][0], [-1, 1])
-        self.class_probs = outputs[2][0]
+
+        self.confidence = outputs[1][0]
+        idxs = self.confidence >= self.score_threshold
+
+        self.boxes = (outputs[0][0])[idxs, :]
+        self.confidence = np.reshape((outputs[1][0])[idxs], [-1, 1])
+        self.class_probs = (outputs[2][0])[idxs, :]
         self.scores = self.confidence * self.class_probs
 
     def translate_coord(self, box):
         # the YOLOv3 model returns y and x coords in the range [0, 1] with respect to the the model height and width
         # they need to be translated to the coords of the original image
-        y_min = int((box[0] * self.height - self.offset_height) / self.scale)
-        x_min = int((box[1] * self.width - self.offset_width) / self.scale)
-        y_max = int((box[2] * self.height- self.offset_height) / self.scale)
-        x_max = int((box[3] * self.width - self.offset_width) / self.scale)
-        return y_min, x_min, y_max, x_max
+        return \
+            int((box[0] * self.width - self.offset_width) / self.scale),\
+            int((box[1] * self.height - self.offset_height) / self.scale),\
+            int((box[2] * self.width - self.offset_width) / self.scale),\
+            int((box[3] * self.height- self.offset_height) / self.scale)
 
     def show_all_bounding_boxes(self):
-        print('all bounding boxes')
 
         num_boxes = self.boxes.shape[0]
-        print('num_boxes:', num_boxes)
 
         font = cv2.FONT_HERSHEY_PLAIN
 
         for box_idx in np.arange(num_boxes):
 
-            y_min, x_min, y_max, x_max = self.translate_coord(self.boxes[box_idx])
+            x_min, y_min, x_max, y_max = self.translate_coord(self.boxes[box_idx])
 
             for class_index in np.arange(self.num_classes):
 
@@ -182,14 +186,14 @@ class ObjectDetector(object):
     def show_nms_bounding_boxes(self):
 
         font = cv2.FONT_HERSHEY_PLAIN
-
-        for class_index in [0, 2, 3, 4, 7, 24]:  # np.arange(self.num_classes):
+        # focus on subset of classes; for all classes use np.arange(self.num_classes)
+        for class_index in [0, 2, 4, 7, 24]:
 
             pick_for_class = \
                 non_max_suppression(self.boxes, self.scores[:, class_index], self.max_num_boxes, self.score_threshold, self.iou_threshold)
 
             for box_idx in pick_for_class:
-                y_min, x_min, y_max, x_max = self.translate_coord(self.boxes[box_idx])
+                x_min, y_min, x_max, y_max = self.translate_coord(self.boxes[box_idx])
 
                 label = '{} {:.2f}'.format(self.class_names[class_index], self.class_probs[box_idx, class_index])
                 label_size = cv2.getTextSize(label, font, 1, 1)
@@ -222,10 +226,10 @@ def non_max_suppression(boxes, scores, max_num_boxes, score_threshold, iou_thres
     pick = []
 
     # grab the coordinates of the bounding boxes
-    y_min = boxes[:, 0]
-    x_min = boxes[:, 1]
-    y_max = boxes[:, 2]
-    x_max = boxes[:, 3]
+    x_min = boxes[:, 0]
+    y_min = boxes[:, 1]
+    x_max = boxes[:, 2]
+    y_max = boxes[:, 3]
 
     # compute the area of the bounding boxes and grab the indexes to sort
     # (in the case that no probabilities are provided, simply sort on the
@@ -277,7 +281,11 @@ def main(path, video=False):
 
         video_object = cv2.VideoCapture(video_file_path)
         frame_rate = video_object.get(5)  # frame rate
-        print ("\nPlaying Video from", video_file_path, "with framerate", frame_rate)
+        print("\nPlaying Video from", video_file_path, "with framerate", frame_rate)
+        if frame_rate <= 31:
+            stride = 2  # every second frame if frame rate low
+        else:
+            stride = 4  # every second frame if frame rate high
 
         start = time.time()
 
@@ -287,12 +295,8 @@ def main(path, video=False):
             if ret is False or frame is None:
                 break
 
-            if frame_rate <= 31:
-                if frame_id % 2 == 0:
-                    detector.detect_image(frame)   # every second frame if frame rate low
-            else:
-                if frame_id % 4 == 0:
-                    detector.detect_image(frame)   # every second frame if frame rate high
+            if frame_id % stride == 0:
+                detector.detect_image(frame)
 
         video_object.release()
         end = time.time()

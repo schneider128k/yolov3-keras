@@ -6,10 +6,7 @@ from keras.layers import Lambda
 def convert_box_params(b_xy, b_wh):
     b_min = b_xy - (b_wh / 2.0)
     b_max = b_xy + (b_wh / 2.0)
-    b_min_max = K.concatenate([
-        b_min[..., ::-1],  # y_min, x_min
-        b_max[..., ::-1],  # y_max, x_max
-    ])
+    b_min_max = K.concatenate([b_min, b_max])
     return b_min_max
 
 
