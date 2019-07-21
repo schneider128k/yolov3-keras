@@ -47,6 +47,7 @@ class ObjectDetector(object):
         self.scale = None
         self.offset_height = None
         self.offset_width = None
+        self.input = None
         # decoded YOLOv3 output
         self.boxes = None
         self.confidence = None
@@ -109,7 +110,7 @@ class ObjectDetector(object):
             self.show_all_bounding_boxes()
 
     def make_model_input(self, image):
-        self.image = image
+        self.image = image  # which color format is used?
         self.image_height = image.shape[0]
         self.image_width = image.shape[1]
         self.scale = min(self.height / self.image_height, self.width / self.image_width)
@@ -117,8 +118,7 @@ class ObjectDetector(object):
         tmp_width = int(self.scale * self.image_width)
         self.offset_height = (self.height - tmp_height) // 2
         self.offset_width = (self.width - tmp_width) // 2
-        input = np.zeros((self.height, self.width, 3), np.uint8)
-        input[:, :] = (128, 128, 128)
+        input = 128 * np.ones((self.height, self.width, 3), np.uint8)
         input[self.offset_height:self.offset_height + tmp_height, self.offset_width:self.offset_width + tmp_width] = \
             cv2.resize(image, (tmp_width, tmp_height))
 
