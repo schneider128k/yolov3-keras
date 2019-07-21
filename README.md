@@ -26,9 +26,10 @@ Bounding Box Prediction/Figure 2 and the implementation of the function ```make_
 * Convert the Darknet YOLOv3 model to a Keras model:
 ```python convert.py yolov3.cfg yolov3.weights model_data/yolov3.h5```
 * Run YOLOv3 detection: ```python detection.py --image <path to image>``` or 
-```python detection.py --video <path to video>``` 
+```python detection.py --video <path to video>```. (Note that it takes a while to load the Keras model ```model_data\yolov3.h5``` before the detection 
+starts.)  
 
-The video [YOLOv3 object detection applied to ArmA3](https://www.youtube.com/watch?v=Nrg5WcMN9lU) shows this implementation in action.
+Click on the image below to see this implementation in action:
+[![YOLOv3 object detection applied to ArmA3](https://github.com/schneider128k/yolov3-keras/blob/master/poster_detection.jpg)](https://www.youtube.com/watch?v=Nrg5WcMN9lU&feature=youtu.be)
 
-Note that it takes a while to load the Keras model ```model_data\yolov3.h5``` before the detection 
-starts.  
+ 
