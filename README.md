@@ -5,16 +5,18 @@
 ## Introduction
 
 This is my Keras implementation of YOLOv3 (Tensorflow backend) that is based on [qqwweee/keras-yolo3](https://github.com/qqwweee/keras-yolo3).
-
-I have written a Lambda layer for decoding the output produced by the YOLOv3 model (it is no longer necessary to run a 
-tensorflow session as in qqwweee's implementation). 
-
-I have also implemented a (fast) non-maximum-suppression based on 
-[jrosebr1/imutils](https://github.com/jrosebr1/imutils/blob/master/imutils/object_detection.py).
-
 So far I have only implemented detection. I am working on the code for training. 
 My goal is to have an elegant implementation of YOLOv3 in Keras for my upcoming 
-undergraduate course on Artificial Intelligence in Fall 2019. I have attempted to use tensor names 
+undergraduate course on Artificial Intelligence in Fall 2019.
+
+I have made several improvements:
+* I have written a Lambda layer for decoding the output produced by the YOLOv3 model (it is no longer necessary to run a 
+tensorflow session as in qqwweee's implementation). 
+* I have also implemented a (fast) non-maximum-suppression based on 
+[jrosebr1/imutils](https://github.com/jrosebr1/imutils/blob/master/imutils/object_detection.py). To speed-up nms, I 
+drop boxes with lower confidence and exit as soon as maximum number of boxes obtained.
+* I use opencv instead of PIL.
+* I have used tensor names 
 that are as close as possible to the names used in the paper 
 [YOLOv3: An Incremental Improvement](https://pjreddie.com/media/files/papers/YOLOv3.pdf). Compare section 2.1 
 Bounding Box Prediction/Figure 2 and the implementation of the function ```make_decoder_layer``` in 
