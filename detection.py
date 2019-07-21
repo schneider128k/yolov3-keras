@@ -16,15 +16,22 @@ class ObjectDetector(object):
         'anchors_path': 'model_data/coco_anchors.txt',
         'classes_path': 'model_data/coco_classes.txt',
         'height': 416,  # height
-        'width' : 416,
+        'width': 416,  # width
         'score_threshold': 0.7,  # a box is considered for class c iff confidence times class_prob for c is >= 0.7
         'iou_threshold': 0.4,  # boxes with iou 0.4 or greater are suppressed in nms
-        'max_num_boxes' : 10  # max number of boxes for a class
+        'max_num_boxes': 10  # max number of boxes for a class
     }
 
     def __init__(self, **kwargs):
-        self.__dict__.update(self._defaults)  # set values to up default values
-        self.__dict__.update(kwargs)  # update values with user inputs
+        self.model_path = self._defaults['model_path']
+        self.anchors_path = self._defaults['anchors_path']
+        self.classes_path = self._defaults['classes_path']
+        self.height = self._defaults['height']
+        self.width = self._defaults['width']
+        self.score_threshold = self._defaults['score_threshold']
+        self.iou_threshold = self._defaults['iou_threshold']
+        self.max_num_boxes = self._defaults['max_num_boxes']
+        #
         self.class_names = self._get_class_names()
         self.num_classes = len(self.class_names)
         self.anchors = self._get_anchors()
@@ -32,6 +39,19 @@ class ObjectDetector(object):
         self.colors = self._get_colors()
         self.num_anchors_per_scale = 3
         self.num_scales = 3
+        # image: run detection on this image/frame
+        # other params: describe how to transform image to model input
+        self.image = None
+        self.image_height = None
+        self.image_width = None
+        self.scale = None
+        self.offset_height = None
+        self.offset_width = None
+        # decoded YOLOv3 output
+        self.boxes = None
+        self.confidence = None
+        self.class_probs = None
+        self.scores = None
 
         assert self.num_anchors == self.num_scales * self.num_anchors_per_scale, 'Mismatch of number of anchors'
         self.model = self._get_detection_model()
