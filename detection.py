@@ -8,6 +8,7 @@ from keras.layers import Input
 from yolov3.decoder_layer import make_decoder_layer
 import time
 import argparse
+from utils import compose
 
 
 class ObjectDetector(object):
@@ -83,23 +84,27 @@ class ObjectDetector(object):
 
     def _get_detection_model(self):
 
+        input = Input(shape=(self.height, self.width, 3))
         yolo_model = load_model(self.model_path, compile=False)
 
         assert len(yolo_model.output) == self.num_scales, \
             'Mismatch between model number of scales and given number of scales.'
 
         for idx in np.arange(self.num_scales):
-            assert yolo_model.output[idx].shape[-1] == self.num_anchors_per_scale * (self.num_classes + 5), \
+            assert yolo_model.output[idx].shape[-1] == self.num_anchors_per_scale * (5 + self.num_classes), \
                 'Mismatch between model output length and number of anchors and and number of classes'
 
-        input = Input(shape=(self.height, self.width, 3))
-        x1 = yolo_model(input)
         decoder_layer = make_decoder_layer(self.anchors,
                                            self.num_classes,
                                            (self.height, self.width))
-        x2 = decoder_layer(x1)
 
-        return Model(input, x2)
+        return Model(
+            input,
+            compose(
+                yolo_model,
+                decoder_layer
+            )(input)
+        )
 
     def detect_image(self, image, nms=True):
         self.make_model_input(image)

@@ -1,6 +1,4 @@
 from functools import reduce
-import numpy as np
-import cv2
 
 
 def compose(*funcs):
