@@ -118,7 +118,7 @@ class ObjectDetector(object):
         tmp_width = int(self.scale * self.image_width)
         self.offset_height = (self.height - tmp_height) // 2
         self.offset_width = (self.width - tmp_width) // 2
-        input = 128 * np.ones((self.height, self.width, 3), np.uint8)
+        input = np.full((self.height, self.width, 3), 128, np.uint8)
         input[self.offset_height:self.offset_height + tmp_height, self.offset_width:self.offset_width + tmp_width] = \
             cv2.resize(image, (tmp_width, tmp_height))
 
