@@ -12,6 +12,13 @@ def convert_box_params(b_xy, b_wh):
 
 def make_decoder_layer(all_anchors, num_classes, input_shape):
     # Lambda layer for postprocessing YOLOv3 output
+    # TO DO
+    #   make the decoder layer faster by
+    #     moving the creation of c_xy outside the function decode
+    #     moving the reshaping of anchors outside the function decode
+    #     using K.greater and K.select to drop boxes with small confidence
+    #     replacing num_anchors by 1 in c_x and c_y (which is possible due to broadcasting)
+    #   decide range for b_x, b_y, b_w, b_y; either [0, 1] or [0, input_width], [0, input_height]
     def decode(yolo_outputs):
         num_scales = len(yolo_outputs)
         anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_scales == 3 else [[3, 4, 5], [1, 2, 3]]
