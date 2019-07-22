@@ -279,6 +279,10 @@ def non_max_suppression(boxes, scores, max_num_boxes, score_threshold, iou_thres
 
 def main(path, video=False):
 
+    frame_rate_threshold = 31
+    stride_small = 2
+    stride_large = 4
+
     detector = ObjectDetector()
 
     if video:
@@ -287,10 +291,10 @@ def main(path, video=False):
         video_object = cv2.VideoCapture(video_file_path)
         frame_rate = video_object.get(5)  # frame rate
         print("\nPlaying Video from", video_file_path, "with framerate", frame_rate)
-        if frame_rate <= 31:
-            stride = 2  # every second frame if frame rate low
+        if frame_rate <= frame_rate_threshold:
+            stride = stride_small
         else:
-            stride = 4  # every second frame if frame rate high
+            stride = stride_large
 
         start = time.time()
 
