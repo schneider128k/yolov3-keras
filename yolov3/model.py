@@ -33,9 +33,9 @@ def resblock_body(x, num_filters, num_blocks):
     x = DarknetConv2D_BN_Leaky(num_filters, (3, 3), strides=(2, 2))(x)
     for i in range(num_blocks):
         y = compose(
-                DarknetConv2D_BN_Leaky(num_filters//2, (1, 1)),
+                DarknetConv2D_BN_Leaky(num_filters // 2, (1, 1)),
                 DarknetConv2D_BN_Leaky(num_filters, (3, 3)))(x)
-        x = Add()([x,y])
+        x = Add()([x, y])
     return x
 
 
@@ -44,9 +44,9 @@ def darknet_body(x):
     x = DarknetConv2D_BN_Leaky(32, (3, 3))(x)
     x = resblock_body(x, 64, 1)
     x = resblock_body(x, 128, 2)
-    b1 = resblock_body(x, 256, 8)
-    b2 = resblock_body(b1, 512, 8)
-    b3 = resblock_body(b2, 1024, 4)
+    b3 = resblock_body(x, 256, 8)
+    b2 = resblock_body(b3, 512, 8)
+    b1 = resblock_body(b2, 1024, 4)
     return b1, b2, b3
 
 
@@ -69,16 +69,19 @@ def make_yolo_model(input, num_anchors_per_scale, num_classes):
     b1, b2, b3 = darknet_body(input)
 
     x, y1 = make_last_layers(b1, 512, num_anchors_per_scale * (5 + num_classes))
+
     x = compose(
             DarknetConv2D_BN_Leaky(256, (1, 1)),
             UpSampling2D(2))(x)
-    x = Concatenate()([x, b2.output])
+
+    x = Concatenate()([x, b2])
 
     x, y2 = make_last_layers(x, 256, num_anchors_per_scale * (5 + num_classes))
 
     x = compose(
             DarknetConv2D_BN_Leaky(128, (1, 1)),
             UpSampling2D(2))(x)
+
     x = Concatenate()([x, b3])
 
     _, y3 = make_last_layers(x, 128, num_anchors_per_scale * (5 + num_classes))
